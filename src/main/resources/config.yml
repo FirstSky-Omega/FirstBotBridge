@@ -64,3 +64,55 @@ events:
       description: "Le KOTH est terminé !\n🥇 Vainqueur : **{1}**"
       color: 16753920
       image-url: ""
+
+    # ── Tournois (FirstTournois) ───────────────────────────────────────────────
+    TOURNOIS_START:
+      title: "⚔️ Tournoi démarré !"
+      description: "Un tournoi vient de commencer sur FirstSky !\nParticipez pour remporter des récompenses !"
+      color: 16776960
+      image-url: ""
+    TOURNOIS_END:
+      # {1} = 1er, {2} = 2ème (optionnel), {3} = 3ème (optionnel)
+      title: "🏆 Tournoi terminé !"
+      description: "Le tournoi est terminé !\n🥇 **{1}**"
+      color: 16776960
+      image-url: ""
+
+    # ── Récolte (FirstRécolte) ────────────────────────────────────────────────
+    RECOLTE_START:
+      title: "🌾 Event Récolte !"
+      description: "Un event récolte vient de démarrer !\nRécoltez un maximum pour remporter le jackpot !"
+      color: 5025616
+      image-url: ""
+    RECOLTE_END:
+      # {1} = 1er récolteur, {2} = 2ème (optionnel)
+      title: "🏆 Récolte terminée !"
+      description: "L'event est terminé !\n🥇 Meilleur récolteur : **{1}**"
+      color: 5025616
+      image-url: ""
+
+    # ── Piñata (FirstPinata) ──────────────────────────────────────────────────
+    PINATA_START:
+      title: "🎪 Piñata Event !"
+      description: "Une Piñata vient d'apparaître sur FirstSky !\nDépêchez-vous pour l'attaquer !"
+      color: 16711935
+      image-url: ""
+    PINATA_END:
+      # {1} = top dégâts, {2} = 2ème, {3} = 3ème (optionnels)
+      title: "🏆 Piñata détruite !"
+      description: "La Piñata est tombée !\n🥇 Top dégâts : **{1}**"
+      color: 16711935
+      image-url: ""
+
+    # ── Destroy The Core (FirstDTC) ───────────────────────────────────────────
+    DTC_START:
+      title: "💥 Destroy The Core !"
+      description: "Un event Destroy The Core vient de démarrer !\nDétruisez le core de vos adversaires !"
+      color: 16711680
+      image-url: ""
+    DTC_END:
+      # %winner% = chef de l'île gagnante, %island% = nom de l'île
+      title: "🏆 DTC terminé !"
+      description: "L'event est terminé !\n🥇 Île gagnante : **%winner%**"
+      color: 16711680
+      image-url: ""
