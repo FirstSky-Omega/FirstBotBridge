@@ -14,23 +14,53 @@ events:
   webhook-url: ""
   # Types d'events — appelés via /discordevent <TYPE> dans les schedules CMI
   types:
-    LUCKY_BLOCK:
+    # ── Lucky Block ──────────────────────────────────────────────────────────
+    LUCKY_BLOCK_START:
       title: "🎰 Lucky Block Event !"
-      description: "Un Lucky Block Event vient de démarrer sur FirstSky !"
+      description: "Un Lucky Block Event vient de démarrer sur FirstSky !\nConnectez-vous vite pour participer !"
       color: 16766720
       image-url: ""
-    PVP:
+    LUCKY_BLOCK_END:
+      # {1} = gagnant, {2} = score (optionnel)
+      title: "🏆 Lucky Block terminé !"
+      description: "L'event est terminé !\n🥇 Gagnant : **{1}**"
+      color: 16766720
+      image-url: ""
+
+    # ── PVP ──────────────────────────────────────────────────────────────────
+    PVP_START:
       title: "⚔️ Event PVP !"
-      description: "Un tournoi PVP vient de commencer sur FirstSky !"
+      description: "Un tournoi PVP vient de commencer sur FirstSky !\nRejoingnez l'arène !"
       color: 16711680
       image-url: ""
-    ENVOY:
+    PVP_END:
+      # {1} = gagnant, {2} = kills (optionnel)
+      title: "🏆 Event PVP terminé !"
+      description: "Le tournoi est terminé !\n🥇 Vainqueur : **{1}**"
+      color: 16711680
+      image-url: ""
+
+    # ── Envoy ─────────────────────────────────────────────────────────────────
+    ENVOY_START:
       title: "📦 Envoy Event !"
-      description: "Des caisses Envoy viennent d'apparaître sur la map !"
+      description: "Des caisses Envoy viennent d'apparaître sur la map !\nSoyez les premiers à les ouvrir !"
       color: 5814783
       image-url: ""
-    KOTH:
+    ENVOY_END:
+      title: "📦 Envoy terminé !"
+      description: "Toutes les caisses Envoy ont été ouvertes !"
+      color: 5814783
+      image-url: ""
+
+    # ── KOTH ──────────────────────────────────────────────────────────────────
+    KOTH_START:
       title: "🏰 KOTH Event !"
-      description: "Un KOTH vient de démarrer, prenez le contrôle !"
+      description: "Un KOTH vient de démarrer, prenez le contrôle de la colline !"
+      color: 16753920
+      image-url: ""
+    KOTH_END:
+      # {1} = gagnant ou équipe
+      title: "🏆 KOTH terminé !"
+      description: "Le KOTH est terminé !\n🥇 Vainqueur : **{1}**"
       color: 16753920
       image-url: ""

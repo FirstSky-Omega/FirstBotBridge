@@ -71,7 +71,15 @@ public class BotBridgePlugin extends JavaPlugin {
         int    color       = getConfig().getInt(   "events.types." + type + ".color",        16766720);
         String imageUrl    = getConfig().getString("events.types." + type + ".image-url",   "");
 
-        getServer().getAsyncScheduler().runNow(this, t -> sendWebhook(webhookUrl, title, description, color, imageUrl));
+        // Remplacement des arguments dynamiques {1}, {2}, ... dans titre et description
+        for (int i = 1; i < args.length; i++) {
+            String placeholder = "{" + i + "}";
+            title       = title.replace(placeholder, args[i]);
+            description = description.replace(placeholder, args[i]);
+        }
+
+        final String finalTitle = title, finalDesc = description, finalImg = imageUrl;
+        getServer().getAsyncScheduler().runNow(this, t -> sendWebhook(webhookUrl, finalTitle, finalDesc, color, finalImg));
         getLogger().info("[BotBridge] Notification Discord envoyée : " + type);
         return true;
     }
