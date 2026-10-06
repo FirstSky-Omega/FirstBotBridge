@@ -1,0 +1,36 @@
+database:
+  host: 153.31.100.0
+  port: 9009
+  user: u11_psshfgDeVS
+  password: "ud=99+=btny0gmSJXyr7^^s="
+  name: s11_ecobit
+
+# Intervalle de polling en ticks (20 ticks = 1 seconde)
+poll-interval-ticks: 10
+
+# Notifications d'events vers Discord
+events:
+  # URL du webhook Discord (Paramètres salon → Intégrations → Webhooks)
+  webhook-url: ""
+  # Types d'events — appelés via /discordevent <TYPE> dans les schedules CMI
+  types:
+    LUCKY_BLOCK:
+      title: "🎰 Lucky Block Event !"
+      description: "Un Lucky Block Event vient de démarrer sur FirstSky !"
+      color: 16766720
+      image-url: ""
+    PVP:
+      title: "⚔️ Event PVP !"
+      description: "Un tournoi PVP vient de commencer sur FirstSky !"
+      color: 16711680
+      image-url: ""
+    ENVOY:
+      title: "📦 Envoy Event !"
+      description: "Des caisses Envoy viennent d'apparaître sur la map !"
+      color: 5814783
+      image-url: ""
+    KOTH:
+      title: "🏰 KOTH Event !"
+      description: "Un KOTH vient de démarrer, prenez le contrôle !"
+      color: 16753920
+      image-url: ""

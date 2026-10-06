@@ -1,0 +1,16 @@
+name: FirstBotBridge
+version: '1.1.0'
+main: net.firstsky.botbridge.BotBridgePlugin
+api-version: '1.21'
+description: Bridge Discord bot ↔ console Minecraft via MySQL + notifications events Discord
+authors: [FirstSky]
+folia-supported: true
+commands:
+  discordevent:
+    description: Envoyer une notification d'event sur Discord
+    usage: /discordevent <type>
+    permission: firstbotbridge.admin
+permissions:
+  firstbotbridge.admin:
+    description: Accès aux commandes FirstBotBridge
+    default: op
