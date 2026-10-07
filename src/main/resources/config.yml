@@ -1,9 +1,9 @@
 database:
   host: 153.31.100.0
-  port: 9009
-  user: u11_psshfgDeVS
-  password: "ud=99+=btny0gmSJXyr7^^s="
-  name: s11_ecobit
+  port: 10010
+  user: u6_e1e224
+  password: "IVHZV2FQXM3JYE7VXK3WG5KS5WCR7AOYYUZUOPI"
+  name: s6_firstbotbridge
 
 # Intervalle de polling en ticks (20 ticks = 1 seconde)
 poll-interval-ticks: 10
