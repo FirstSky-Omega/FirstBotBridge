@@ -111,8 +111,8 @@ events:
       color: 16711680
       image-url: ""
     DTC_END:
-      # %winner% = chef de l'île gagnante, %island% = nom de l'île
+      # {1} = chef de l'île gagnante, {2} = nom de l'île
       title: "🏆 DTC terminé !"
-      description: "L'event est terminé !\n🥇 Île gagnante : **%winner%**"
+      description: "L'event est terminé !\n🥇 Vainqueur : **{1}** ({2})"
       color: 16711680
       image-url: ""
