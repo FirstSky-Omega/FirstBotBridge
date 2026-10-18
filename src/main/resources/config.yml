@@ -8,6 +8,13 @@ database:
 # Intervalle de polling en ticks (20 ticks = 1 seconde)
 poll-interval-ticks: 10
 
+# Commande /soutiens — récompenses pour les membres Soutien Discord
+soutien:
+  # Commande exécutée en console. {player} sera remplacé par le pseudo du joueur.
+  reward-command: "eco give {player} 10000"
+  # Cooldown en jours entre deux réclamations
+  cooldown-days: 30
+
 # Notifications d'events vers Discord
 events:
   # URL du webhook Discord (Paramètres salon → Intégrations → Webhooks)

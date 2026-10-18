@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.net.URI;
@@ -34,7 +35,7 @@ public class BotBridgePlugin extends JavaPlugin {
             return;
         }
 
-        createTableIfNeeded();
+        createTablesIfNeeded();
 
         long intervalMs = getConfig().getLong("poll-interval-ticks", 10) * 50L;
         getServer().getAsyncScheduler().runAtFixedRate(this, task -> pollCommands(), 0, intervalMs, TimeUnit.MILLISECONDS);
@@ -47,42 +48,129 @@ public class BotBridgePlugin extends JavaPlugin {
         if (pool != null && !pool.isClosed()) pool.close();
     }
 
-    // ── Commande /discordevent ────────────────────────────────────────────────
+    // ── Commandes ─────────────────────────────────────────────────────────────
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!command.getName().equalsIgnoreCase("discordevent")) return false;
 
-        if (args.length < 1) {
-            sender.sendMessage("[BotBridge] Usage: /discordevent <type>");
+        // /discordevent
+        if (command.getName().equalsIgnoreCase("discordevent")) {
+            if (args.length < 1) {
+                sender.sendMessage("[BotBridge] Usage: /discordevent <type>");
+                return true;
+            }
+
+            String type       = args[0].toUpperCase();
+            String webhookUrl = getConfig().getString("events.webhook-url", "");
+
+            if (webhookUrl.isEmpty()) {
+                getLogger().warning("[BotBridge] events.webhook-url non configuré dans config.yml.");
+                return true;
+            }
+
+            String title       = getConfig().getString("events.types." + type + ".title",       "Event sur FirstSky !");
+            String description = getConfig().getString("events.types." + type + ".description", "");
+            int    color       = getConfig().getInt(   "events.types." + type + ".color",        16766720);
+            String imageUrl    = getConfig().getString("events.types." + type + ".image-url",   "");
+
+            for (int i = 1; i < args.length; i++) {
+                String placeholder = "{" + i + "}";
+                title       = title.replace(placeholder, args[i]);
+                description = description.replace(placeholder, args[i]);
+            }
+
+            final String finalTitle = title, finalDesc = description, finalImg = imageUrl;
+            getServer().getAsyncScheduler().runNow(this, t -> sendWebhook(webhookUrl, finalTitle, finalDesc, color, finalImg));
+            getLogger().info("[BotBridge] Notification Discord envoyée : " + type);
             return true;
         }
 
-        String type       = args[0].toUpperCase();
-        String webhookUrl = getConfig().getString("events.webhook-url", "");
+        // /soutiens
+        if (command.getName().equalsIgnoreCase("soutiens")) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage("§cCette commande est réservée aux joueurs.");
+                return true;
+            }
 
-        if (webhookUrl.isEmpty()) {
-            getLogger().warning("[BotBridge] events.webhook-url non configuré dans config.yml.");
+            String rewardCommand = getConfig().getString("soutien.reward-command", "");
+            int    cooldownDays  = getConfig().getInt("soutien.cooldown-days", 30);
+
+            if (rewardCommand.isEmpty()) {
+                player.sendMessage("§cLes récompenses Soutien ne sont pas encore configurées.");
+                return true;
+            }
+
+            String uuid = player.getUniqueId().toString();
+
+            getServer().getAsyncScheduler().runNow(this, t -> {
+                try (Connection c = pool.getConnection()) {
+
+                    // 1. Vérifier l'éligibilité (rôle Soutien Discord)
+                    boolean eligible = false;
+                    try (PreparedStatement ps = c.prepareStatement(
+                            "SELECT eligible FROM soutien_eligible WHERE mc_uuid = ?")) {
+                        ps.setString(1, uuid);
+                        ResultSet rs = ps.executeQuery();
+                        if (rs.next()) eligible = rs.getInt("eligible") == 1;
+                    }
+
+                    if (!eligible) {
+                        player.sendMessage("§c❌ Tu n'as pas le rôle §fSoutien§c Discord.");
+                        player.sendMessage("§7Ajoute §fdiscord.gg/firstsky§7 dans ton statut Discord pour l'obtenir automatiquement !");
+                        return;
+                    }
+
+                    // 2. Vérifier le cooldown
+                    long lastClaimed = 0;
+                    try (PreparedStatement ps = c.prepareStatement(
+                            "SELECT last_claimed FROM soutien_cooldowns WHERE mc_uuid = ?")) {
+                        ps.setString(1, uuid);
+                        ResultSet rs = ps.executeQuery();
+                        if (rs.next()) lastClaimed = rs.getLong("last_claimed");
+                    }
+
+                    long now         = System.currentTimeMillis();
+                    long cooldownMs  = (long) cooldownDays * 24L * 60L * 60L * 1000L;
+                    long nextClaim   = lastClaimed + cooldownMs;
+
+                    if (now < nextClaim) {
+                        long remaining = nextClaim - now;
+                        long days      = remaining / (24L * 60 * 60 * 1000);
+                        long hours     = (remaining % (24L * 60 * 60 * 1000)) / (60 * 60 * 1000);
+                        player.sendMessage("§c⏳ Tu as déjà réclamé ta récompense ! Reviens dans §f"
+                                + days + "j " + hours + "h§c.");
+                        return;
+                    }
+
+                    // 3. Donner la récompense
+                    String cmd = rewardCommand.replace("{player}", player.getName());
+                    getServer().getGlobalRegionScheduler().run(this, task ->
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd)
+                    );
+
+                    // 4. Enregistrer le cooldown
+                    try (PreparedStatement ps = c.prepareStatement(
+                            "INSERT INTO soutien_cooldowns (mc_uuid, last_claimed) VALUES (?, ?) " +
+                            "ON DUPLICATE KEY UPDATE last_claimed = VALUES(last_claimed)")) {
+                        ps.setString(1, uuid);
+                        ps.setLong(2, now);
+                        ps.executeUpdate();
+                    }
+
+                    player.sendMessage("§a✅ Récompense Soutien reçue ! Merci de soutenir FirstSky §c❤");
+
+                } catch (Exception e) {
+                    getLogger().warning("[BotBridge] Erreur /soutiens : " + e.getMessage());
+                    player.sendMessage("§cErreur interne, réessaie dans quelques secondes.");
+                }
+            });
             return true;
         }
 
-        String title       = getConfig().getString("events.types." + type + ".title",       "Event sur FirstSky !");
-        String description = getConfig().getString("events.types." + type + ".description", "");
-        int    color       = getConfig().getInt(   "events.types." + type + ".color",        16766720);
-        String imageUrl    = getConfig().getString("events.types." + type + ".image-url",   "");
-
-        // Remplacement des arguments dynamiques {1}, {2}, ... dans titre et description
-        for (int i = 1; i < args.length; i++) {
-            String placeholder = "{" + i + "}";
-            title       = title.replace(placeholder, args[i]);
-            description = description.replace(placeholder, args[i]);
-        }
-
-        final String finalTitle = title, finalDesc = description, finalImg = imageUrl;
-        getServer().getAsyncScheduler().runNow(this, t -> sendWebhook(webhookUrl, finalTitle, finalDesc, color, finalImg));
-        getLogger().info("[BotBridge] Notification Discord envoyée : " + type);
-        return true;
+        return false;
     }
+
+    // ── Webhook Discord ───────────────────────────────────────────────────────
 
     private void sendWebhook(String url, String title, String description, int color, String imageUrl) {
         try {
@@ -118,7 +206,7 @@ public class BotBridgePlugin extends JavaPlugin {
                 .replace("\r", "");
     }
 
-    // ── Bridge console (sens Bot → Minecraft) ────────────────────────────────
+    // ── Database ──────────────────────────────────────────────────────────────
 
     private boolean setupDatabase() {
         try {
@@ -141,20 +229,39 @@ public class BotBridgePlugin extends JavaPlugin {
         }
     }
 
-    private void createTableIfNeeded() {
-        try (Connection c = pool.getConnection();
-             PreparedStatement ps = c.prepareStatement(
-                "CREATE TABLE IF NOT EXISTS bot_console_queue (" +
-                "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
-                "  command VARCHAR(512) NOT NULL," +
-                "  status ENUM('pending','done','error') NOT NULL DEFAULT 'pending'," +
-                "  created_at BIGINT NOT NULL" +
-                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")) {
-            ps.execute();
+    private void createTablesIfNeeded() {
+        String[] tables = {
+            "CREATE TABLE IF NOT EXISTS bot_console_queue (" +
+            "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+            "  command VARCHAR(512) NOT NULL," +
+            "  status ENUM('pending','done','error') NOT NULL DEFAULT 'pending'," +
+            "  created_at BIGINT NOT NULL" +
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS soutien_eligible (" +
+            "  mc_uuid VARCHAR(36) PRIMARY KEY," +
+            "  eligible TINYINT(1) NOT NULL DEFAULT 1," +
+            "  updated_at BIGINT NOT NULL" +
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS soutien_cooldowns (" +
+            "  mc_uuid VARCHAR(36) PRIMARY KEY," +
+            "  last_claimed BIGINT NOT NULL" +
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        };
+
+        try (Connection c = pool.getConnection()) {
+            for (String sql : tables) {
+                try (PreparedStatement ps = c.prepareStatement(sql)) {
+                    ps.execute();
+                }
+            }
         } catch (Exception e) {
-            getLogger().warning("Impossible de créer la table: " + e.getMessage());
+            getLogger().warning("Impossible de créer les tables: " + e.getMessage());
         }
     }
+
+    // ── Bridge console (Bot → Minecraft) ─────────────────────────────────────
 
     private void pollCommands() {
         try (Connection c = pool.getConnection()) {

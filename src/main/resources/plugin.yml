@@ -10,6 +10,9 @@ commands:
     description: Envoyer une notification d'event sur Discord
     usage: /discordevent <type>
     permission: firstbotbridge.admin
+  soutiens:
+    description: Réclamer ses récompenses Soutien en jeu
+    usage: /soutiens
 permissions:
   firstbotbridge.admin:
     description: Accès aux commandes FirstBotBridge
