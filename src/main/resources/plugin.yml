@@ -5,6 +5,7 @@ api-version: '1.21'
 description: Bridge Discord bot ↔ console Minecraft via MySQL + notifications events Discord
 authors: [FirstSky]
 folia-supported: true
+softdepend: [PlaceholderAPI]
 commands:
   discordevent:
     description: Envoyer une notification d'event sur Discord

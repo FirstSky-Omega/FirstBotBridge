@@ -2,6 +2,7 @@ package net.firstsky.botbridge;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -13,12 +14,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.sql.Connection;
-import java.util.Collections;
-import java.util.List;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class BotBridgePlugin extends JavaPlugin {
@@ -41,6 +42,7 @@ public class BotBridgePlugin extends JavaPlugin {
 
         long intervalMs = getConfig().getLong("poll-interval-ticks", 10) * 50L;
         getServer().getAsyncScheduler().runAtFixedRate(this, task -> pollCommands(), 0, intervalMs, TimeUnit.MILLISECONDS);
+        getServer().getAsyncScheduler().runAtFixedRate(this, task -> pollPlaceholderRequests(), 0, 1, TimeUnit.SECONDS);
 
         getLogger().info("FirstBotBridge activé (poll toutes les " + intervalMs + "ms).");
     }
@@ -350,6 +352,15 @@ public class BotBridgePlugin extends JavaPlugin {
             "  mc_uuid VARCHAR(36) PRIMARY KEY," +
             "  last_claimed BIGINT NOT NULL" +
             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS placeholder_requests (" +
+            "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+            "  mc_uuid VARCHAR(36) NOT NULL," +
+            "  placeholder VARCHAR(256) NOT NULL," +
+            "  status ENUM('pending','done') NOT NULL DEFAULT 'pending'," +
+            "  result VARCHAR(512) DEFAULT NULL," +
+            "  created_at BIGINT NOT NULL" +
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         };
 
         try (Connection c = pool.getConnection()) {
@@ -360,6 +371,78 @@ public class BotBridgePlugin extends JavaPlugin {
             }
         } catch (Exception e) {
             getLogger().warning("Impossible de créer les tables: " + e.getMessage());
+        }
+    }
+
+    // ── PlaceholderAPI bridge (Bot → Minecraft → Bot) ────────────────────────
+
+    private void pollPlaceholderRequests() {
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") == null) return;
+
+        try (Connection c = pool.getConnection()) {
+            long cutoff = System.currentTimeMillis() - 15_000;
+            List<Long>   ids          = new ArrayList<>();
+            List<String> mcUuids      = new ArrayList<>();
+            List<String> placeholders = new ArrayList<>();
+
+            try (PreparedStatement sel = c.prepareStatement(
+                    "SELECT id, mc_uuid, placeholder FROM placeholder_requests " +
+                    "WHERE status = 'pending' AND created_at > ? LIMIT 5")) {
+                sel.setLong(1, cutoff);
+                ResultSet rs = sel.executeQuery();
+                while (rs.next()) {
+                    ids.add(rs.getLong("id"));
+                    mcUuids.add(rs.getString("mc_uuid"));
+                    placeholders.add(rs.getString("placeholder"));
+                }
+            }
+
+            for (int i = 0; i < ids.size(); i++) {
+                long   id          = ids.get(i);
+                String uuidStr     = mcUuids.get(i);
+                String placeholder = placeholders.get(i);
+
+                Player player;
+                try {
+                    player = Bukkit.getPlayer(UUID.fromString(uuidStr));
+                } catch (IllegalArgumentException e) {
+                    writePlaceholderResult(id, "__error__");
+                    continue;
+                }
+
+                if (player == null) {
+                    writePlaceholderResult(id, "__offline__");
+                    continue;
+                }
+
+                final Player fp  = player;
+                final long   fi  = id;
+                final String fph = placeholder;
+                getServer().getGlobalRegionScheduler().run(this, task -> {
+                    String result;
+                    try {
+                        result = PlaceholderAPI.setPlaceholders(fp, fph);
+                    } catch (Exception e) {
+                        result = "__error__";
+                    }
+                    final String fr = result;
+                    getServer().getAsyncScheduler().runNow(this, t -> writePlaceholderResult(fi, fr));
+                });
+            }
+        } catch (Exception e) {
+            getLogger().warning("[BotBridge] Erreur poll placeholder_requests: " + e.getMessage());
+        }
+    }
+
+    private void writePlaceholderResult(long id, String result) {
+        try (Connection c = pool.getConnection();
+             PreparedStatement upd = c.prepareStatement(
+                 "UPDATE placeholder_requests SET status = 'done', result = ? WHERE id = ?")) {
+            upd.setString(1, result);
+            upd.setLong(2, id);
+            upd.executeUpdate();
+        } catch (Exception e) {
+            getLogger().warning("[BotBridge] Erreur write placeholder result: " + e.getMessage());
         }
     }
 

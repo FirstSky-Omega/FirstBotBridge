@@ -5,11 +5,20 @@ api-version: '1.21'
 description: Bridge Discord bot ↔ console Minecraft via MySQL + notifications events Discord
 authors: [FirstSky]
 folia-supported: true
+softdepend: [PlaceholderAPI]
 commands:
   discordevent:
     description: Envoyer une notification d'event sur Discord
     usage: /discordevent <type>
     permission: firstbotbridge.admin
+  soutiens:
+    description: Réclamer ses récompenses Soutien en jeu
+    usage: /soutiens
+    tab-completer: net.firstsky.botbridge.BotBridgePlugin
+  nitroboost:
+    description: Réclamer ses récompenses Nitro Boost en jeu
+    usage: /nitroboost
+    tab-completer: net.firstsky.botbridge.BotBridgePlugin
 permissions:
   firstbotbridge.admin:
     description: Accès aux commandes FirstBotBridge
