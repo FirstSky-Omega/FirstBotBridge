@@ -13,9 +13,11 @@ commands:
   soutiens:
     description: Réclamer ses récompenses Soutien en jeu
     usage: /soutiens
+    tab-completer: net.firstsky.botbridge.BotBridgePlugin
   nitroboost:
     description: Réclamer ses récompenses Nitro Boost en jeu
     usage: /nitroboost
+    tab-completer: net.firstsky.botbridge.BotBridgePlugin
 permissions:
   firstbotbridge.admin:
     description: Accès aux commandes FirstBotBridge

@@ -13,6 +13,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.sql.Connection;
+import java.util.Collections;
+import java.util.List;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -46,6 +48,13 @@ public class BotBridgePlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (pool != null && !pool.isClosed()) pool.close();
+    }
+
+    // ── Autocomplétion tab ────────────────────────────────────────────────────
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        return Collections.emptyList(); // pas d'arguments pour ces commandes
     }
 
     // ── Commandes ─────────────────────────────────────────────────────────────
