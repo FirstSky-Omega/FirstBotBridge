@@ -167,6 +167,88 @@ public class BotBridgePlugin extends JavaPlugin {
             return true;
         }
 
+        // /nitroboost
+        if (command.getName().equalsIgnoreCase("nitroboost")) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage("§cCette commande est réservée aux joueurs.");
+                return true;
+            }
+
+            String rewardCommand = getConfig().getString("nitroboost.reward-command", "");
+            int    cooldownDays  = getConfig().getInt("nitroboost.cooldown-days", 30);
+
+            if (rewardCommand.isEmpty()) {
+                player.sendMessage("§cLes récompenses Nitro Boost ne sont pas encore configurées.");
+                return true;
+            }
+
+            String uuid = player.getUniqueId().toString();
+
+            getServer().getAsyncScheduler().runNow(this, t -> {
+                try (Connection c = pool.getConnection()) {
+
+                    // 1. Vérifier l'éligibilité (Nitro Booster Discord)
+                    boolean eligible = false;
+                    try (PreparedStatement ps = c.prepareStatement(
+                            "SELECT eligible FROM boost_eligible WHERE mc_uuid = ?")) {
+                        ps.setString(1, uuid);
+                        ResultSet rs = ps.executeQuery();
+                        if (rs.next()) eligible = rs.getInt("eligible") == 1;
+                    }
+
+                    if (!eligible) {
+                        player.sendMessage("§c❌ Tu ne boostes pas le serveur Discord FirstSky.");
+                        player.sendMessage("§7Boostez le serveur Discord pour débloquer cette récompense !");
+                        return;
+                    }
+
+                    // 2. Vérifier le cooldown
+                    long lastClaimed = 0;
+                    try (PreparedStatement ps = c.prepareStatement(
+                            "SELECT last_claimed FROM boost_cooldowns WHERE mc_uuid = ?")) {
+                        ps.setString(1, uuid);
+                        ResultSet rs = ps.executeQuery();
+                        if (rs.next()) lastClaimed = rs.getLong("last_claimed");
+                    }
+
+                    long now        = System.currentTimeMillis();
+                    long cooldownMs = (long) cooldownDays * 24L * 60L * 60L * 1000L;
+                    long nextClaim  = lastClaimed + cooldownMs;
+
+                    if (now < nextClaim) {
+                        long remaining = nextClaim - now;
+                        long days      = remaining / (24L * 60 * 60 * 1000);
+                        long hours     = (remaining % (24L * 60 * 60 * 1000)) / (60 * 60 * 1000);
+                        player.sendMessage("§c⏳ Tu as déjà réclamé ta récompense ! Reviens dans §f"
+                                + days + "j " + hours + "h§c.");
+                        return;
+                    }
+
+                    // 3. Donner la récompense
+                    String cmd = rewardCommand.replace("{player}", player.getName());
+                    getServer().getGlobalRegionScheduler().run(this, task ->
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd)
+                    );
+
+                    // 4. Enregistrer le cooldown
+                    try (PreparedStatement ps = c.prepareStatement(
+                            "INSERT INTO boost_cooldowns (mc_uuid, last_claimed) VALUES (?, ?) " +
+                            "ON DUPLICATE KEY UPDATE last_claimed = VALUES(last_claimed)")) {
+                        ps.setString(1, uuid);
+                        ps.setLong(2, now);
+                        ps.executeUpdate();
+                    }
+
+                    player.sendMessage("§a✅ Récompense Nitro Boost reçue ! Merci de booster FirstSky §c💜");
+
+                } catch (Exception e) {
+                    getLogger().warning("[BotBridge] Erreur /nitroboost : " + e.getMessage());
+                    player.sendMessage("§cErreur interne, réessaie dans quelques secondes.");
+                }
+            });
+            return true;
+        }
+
         return false;
     }
 
@@ -245,6 +327,17 @@ public class BotBridgePlugin extends JavaPlugin {
             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
             "CREATE TABLE IF NOT EXISTS soutien_cooldowns (" +
+            "  mc_uuid VARCHAR(36) PRIMARY KEY," +
+            "  last_claimed BIGINT NOT NULL" +
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS boost_eligible (" +
+            "  mc_uuid VARCHAR(36) PRIMARY KEY," +
+            "  eligible TINYINT(1) NOT NULL DEFAULT 1," +
+            "  updated_at BIGINT NOT NULL" +
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS boost_cooldowns (" +
             "  mc_uuid VARCHAR(36) PRIMARY KEY," +
             "  last_claimed BIGINT NOT NULL" +
             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",

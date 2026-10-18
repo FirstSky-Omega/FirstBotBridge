@@ -13,6 +13,9 @@ commands:
   soutiens:
     description: Réclamer ses récompenses Soutien en jeu
     usage: /soutiens
+  nitroboost:
+    description: Réclamer ses récompenses Nitro Boost en jeu
+    usage: /nitroboost
 permissions:
   firstbotbridge.admin:
     description: Accès aux commandes FirstBotBridge
