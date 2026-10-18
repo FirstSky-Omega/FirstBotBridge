@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.bukkit.OfflinePlayer;
 
 public class BotBridgePlugin extends JavaPlugin {
 
@@ -402,22 +403,17 @@ public class BotBridgePlugin extends JavaPlugin {
                 String uuidStr     = mcUuids.get(i);
                 String placeholder = placeholders.get(i);
 
-                Player player;
+                OfflinePlayer offlinePlayer;
                 try {
-                    player = Bukkit.getPlayer(UUID.fromString(uuidStr));
+                    offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(uuidStr));
                 } catch (IllegalArgumentException e) {
                     writePlaceholderResult(id, "__error__");
                     continue;
                 }
 
-                if (player == null) {
-                    writePlaceholderResult(id, "__offline__");
-                    continue;
-                }
-
-                final Player fp  = player;
-                final long   fi  = id;
-                final String fph = placeholder;
+                final OfflinePlayer fp  = offlinePlayer;
+                final long          fi  = id;
+                final String        fph = placeholder;
                 getServer().getGlobalRegionScheduler().run(this, task -> {
                     String result;
                     try {
