@@ -19,6 +19,13 @@ commands:
     description: Réclamer ses récompenses Nitro Boost en jeu
     usage: /nitroboost
     tab-completer: net.firstsky.botbridge.BotBridgePlugin
+  votenotif:
+    description: Enregistrer un vote pour notification Discord
+    usage: /votenotif <pseudo> <site>
+    permission: firstbotbridge.admin
+  notifvote:
+    description: Activer ou désactiver les notifications de vote par MP Discord
+    usage: /notifvote
 permissions:
   firstbotbridge.admin:
     description: Accès aux commandes FirstBotBridge

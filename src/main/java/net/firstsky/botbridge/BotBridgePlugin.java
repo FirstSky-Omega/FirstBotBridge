@@ -27,6 +27,8 @@ public class BotBridgePlugin extends JavaPlugin {
 
     private HikariDataSource pool;
     private HttpClient httpClient;
+    private final java.util.Map<String, Long> notifCooldowns = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long NOTIF_COOLDOWN_MS = 30_000L;
 
     @Override
     public void onEnable() {
@@ -261,6 +263,91 @@ public class BotBridgePlugin extends JavaPlugin {
             return true;
         }
 
+        // /notifvote (toggle)
+        if (command.getName().equalsIgnoreCase("notifvote")) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage("§cCette commande est réservée aux joueurs.");
+                return true;
+            }
+
+            String uuid = player.getUniqueId().toString();
+            long now    = System.currentTimeMillis();
+
+            Long lastUse = notifCooldowns.get(uuid);
+            if (lastUse != null && now - lastUse < NOTIF_COOLDOWN_MS) {
+                long remaining = (NOTIF_COOLDOWN_MS - (now - lastUse)) / 1000;
+                player.sendMessage("§c⏳ Attends encore §f" + remaining + "s§c avant de changer ce paramètre.");
+                return true;
+            }
+            notifCooldowns.put(uuid, now);
+
+            getServer().getAsyncScheduler().runNow(this, t -> {
+                try (Connection c = pool.getConnection()) {
+                    boolean currentlyActive = false;
+                    try (PreparedStatement ps = c.prepareStatement(
+                            "SELECT active FROM vote_subscribers WHERE mc_uuid = ?")) {
+                        ps.setString(1, uuid);
+                        ResultSet rs = ps.executeQuery();
+                        if (rs.next()) currentlyActive = rs.getInt("active") == 1;
+                    }
+
+                    boolean newState = !currentlyActive;
+                    try (PreparedStatement ps = c.prepareStatement(
+                            "INSERT INTO vote_subscribers (mc_uuid, active, updated_at) VALUES (?, ?, ?) " +
+                            "ON DUPLICATE KEY UPDATE active = VALUES(active), updated_at = VALUES(updated_at)")) {
+                        ps.setString(1, uuid);
+                        ps.setInt(2, newState ? 1 : 0);
+                        ps.setLong(3, now);
+                        ps.executeUpdate();
+                    }
+
+                    if (newState) {
+                        player.sendMessage("§a🔔 Notifications de vote §factivées§a ! Tu recevras un MP Discord quand tu pourras voter à nouveau.");
+                    } else {
+                        player.sendMessage("§7🔕 Notifications de vote §fdésactivées§7.");
+                    }
+                } catch (Exception e) {
+                    getLogger().warning("[BotBridge] Erreur /notifvote : " + e.getMessage());
+                    player.sendMessage("§cErreur interne, réessaie dans quelques secondes.");
+                }
+            });
+            return true;
+        }
+
+        // /votenotif <pseudo> <site>
+        if (command.getName().equalsIgnoreCase("votenotif")) {
+            if (args.length < 2) {
+                sender.sendMessage("[BotBridge] Usage: /votenotif <pseudo> <site>");
+                return true;
+            }
+
+            String pseudo = args[0];
+            String site   = args[1];
+            long   now    = System.currentTimeMillis();
+
+            // Résolution UUID depuis le cache offline Bukkit (async-safe)
+            @SuppressWarnings("deprecation")
+            OfflinePlayer op = Bukkit.getOfflinePlayer(pseudo);
+            String resolvedUuid = (op != null && op.getUniqueId() != null) ? op.getUniqueId().toString() : null;
+            final String finalUuid = resolvedUuid;
+
+            getServer().getAsyncScheduler().runNow(this, t -> {
+                try (Connection c = pool.getConnection();
+                     PreparedStatement ps = c.prepareStatement(
+                         "INSERT INTO vote_events (pseudo, mc_uuid, site, voted_at, notified) VALUES (?, ?, ?, ?, 0)")) {
+                    ps.setString(1, pseudo);
+                    ps.setString(2, finalUuid);
+                    ps.setString(3, site);
+                    ps.setLong(4, now);
+                    ps.executeUpdate();
+                    getLogger().info("[BotBridge] Vote enregistré : " + pseudo + " (" + finalUuid + ") -> " + site);
+                } catch (Exception e) {
+                    getLogger().warning("[BotBridge] Erreur /votenotif : " + e.getMessage());
+                }
+            });
+            return true;
+        }
+
         return false;
     }
 
@@ -361,6 +448,21 @@ public class BotBridgePlugin extends JavaPlugin {
             "  status ENUM('pending','done') NOT NULL DEFAULT 'pending'," +
             "  result VARCHAR(512) DEFAULT NULL," +
             "  created_at BIGINT NOT NULL" +
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS vote_subscribers (" +
+            "  mc_uuid VARCHAR(36) PRIMARY KEY," +
+            "  active TINYINT(1) NOT NULL DEFAULT 1," +
+            "  updated_at BIGINT NOT NULL" +
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+            "CREATE TABLE IF NOT EXISTS vote_events (" +
+            "  id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+            "  pseudo VARCHAR(64) NOT NULL," +
+            "  mc_uuid VARCHAR(36) DEFAULT NULL," +
+            "  site VARCHAR(128) NOT NULL," +
+            "  voted_at BIGINT NOT NULL," +
+            "  notified TINYINT(1) NOT NULL DEFAULT 0" +
             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         };
 
